@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>World on Fire | EONET Live Dashboard</title>
+  <meta name="description" content="Live global natural event dashboard powered by NASA EONET." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    :root {
+      --bg: #080c0f;
+      --panel: #0f161c;
+      --panel-2: #131d24;
+      --panel-3: #19242d;
+      --line: rgba(255, 255, 255, 0.1);
+      --line-strong: rgba(255, 255, 255, 0.18);
+      --text: #e7eef4;
+      --muted: #95a6b3;
+      --danger: #ff4510;
+      --wildfires: #ff4510;
+      --severe-storms: #00aaff;
+      --volcanoes: #cc44ff;
+      --floods: #00ddaa;
+      --sea-lake-ice: #88ccff;
+      --drought: #ffaa00;
+      --dust-haze: #cc9966;
+      --other: #888888;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --max: 1480px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background-image:
+        radial-gradient(circle at top left, rgba(255, 69, 16, 0.08), transparent 28%),
+        radial-gradient(circle at top right, rgba(0, 170, 255, 0.08), transparent 24%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 30%);
+      min-height: 100vh;
+    }
+
+    .shell {
+      width: min(calc(100% - 28px), var(--max));
+      margin: 0 auto;
+      padding: 24px 0 40px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    .brand {
+      padding: 22px 24px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .brand::after {
+      content: "";
+      position: absolute;
+      inset: auto -30px -30px auto;
+      width: 180px;
+      height: 180px;
+      background: radial-gradient(circle, rgba(255,69,16,0.18), transparent 66%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.03);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: "Share Tech Mono", monospace;
+    }
+
+    h1 {
+      margin: 14px 0 8px;
+      font-family: "Bebas Neue", Impact, sans-serif;
+      font-size: clamp(3.3rem, 7vw, 5.8rem);
+      line-height: 0.92;
+      letter-spacing: 0.02em;
+      font-weight: 400;
+    }
+
+    .subhead {
+      margin: 0;
+      max-width: 70ch;
+      color: #c5d2dc;
+      font-size: 0.98rem;
+      line-height: 1.6;
+    }
+
+    .headline-panel {
+      padding: 22px 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .mono-label,
+    .timestamp,
+    .total-value,
+    .stat-card .label,
+    .control-pill,
+    .category-btn {
+      font-family: "Share Tech Mono", monospace;
+    }
+
+    .mono-label {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      margin-bottom: 8px;
+    }
+
+    .total-value {
+      font-size: clamp(2.6rem, 5vw, 4rem);
+      line-height: 1;
+      margin: 0;
+    }
+
+    .headline-copy {
+      margin: 6px 0 0;
+      color: #c9d5de;
+      line-height: 1.5;
+      font-size: 0.96rem;
+    }
+
+    .timestamp {
+      color: var(--muted);
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+    }
+
+    .control-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .control-title {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-right: 6px;
+    }
+
+    button {
+      appearance: none;
+      border: none;
+      background: none;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .control-pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: #121c23;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #b9c7d1;
+      font-size: 0.84rem;
+      letter-spacing: 0.02em;
+      transition: 160ms ease;
+    }
+
+    .control-pill:hover,
+    .category-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .control-pill.active {
+      color: var(--text);
+      background: #1a2a35;
+      border-color: rgba(255, 255, 255, 0.22);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05), 0 0 0 1px rgba(0,0,0,0.12);
+    }
+
+    .category-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 13px;
+      border-radius: 999px;
+      background: #101920;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #dce7ef;
+      font-size: 0.82rem;
+      transition: 160ms ease;
+    }
+
+    .category-btn.off {
+      opacity: 0.5;
+      color: #8fa0ac;
+    }
+
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
+      flex: 0 0 auto;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .stat-card {
+      padding: 16px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--line);
+      min-height: 108px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 4px;
+      background: var(--accent, var(--other));
+    }
+
+    .stat-card .label {
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.72rem;
+      color: #a7b6c1;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .stat-card .value {
+      font-family: "Bebas Neue", Impact, sans-serif;
+      font-size: 2.15rem;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      margin-bottom: 4px;
+    }
+
+    .stat-card .meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .map-frame {
+      position: relative;
+      border-radius: 26px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      background: var(--panel);
+      min-height: 640px;
+    }
+
+    #map {
+      width: 100%;
+      min-height: 640px;
+      background: #081017;
+    }
+
+    .map-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, rgba(8,12,15,0.55), rgba(8,12,15,0.76));
+      z-index: 700;
+      padding: 24px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+    }
+
+    .map-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .overlay-card {
+      width: min(560px, 100%);
+      padding: 26px 22px;
+      background: rgba(7, 10, 13, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .overlay-card h2 {
+      margin: 0 0 10px;
+      font-family: "Bebas Neue", Impact, sans-serif;
+      font-size: 2.1rem;
+      letter-spacing: 0.03em;
+      font-weight: 400;
+    }
+
+    .overlay-card p {
+      margin: 0 0 14px;
+      color: #c8d5dd;
+      line-height: 1.6;
+    }
+
+    .overlay-detail {
+      color: #92a3b0;
+      font-family: "Share Tech Mono", monospace;
+      font-size: 0.83rem;
+      letter-spacing: 0.02em;
+      word-break: break-word;
+    }
+
+    .spinner {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.12);
+      border-top-color: var(--wildfires);
+      margin: 0 auto 14px;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .map-legend {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      z-index: 650;
+      padding: 14px 14px 12px;
+      width: min(280px, calc(100% - 32px));
+      background: rgba(8, 12, 15, 0.85);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .legend-title {
+      font-family: "Share Tech Mono", monospace;
+      font-size: 0.77rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin: 0 0 10px;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+      font-size: 0.84rem;
+      color: #d5e0e8;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .footer-note {
+      margin-top: 14px;
+      color: #81929f;
+      font-size: 0.84rem;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip {
+      background: #0b1217;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    .leaflet-popup-content {
+      margin: 14px 16px;
+      min-width: 250px;
+    }
+
+    .popup-title {
+      font-size: 1rem;
+      line-height: 1.35;
+      font-weight: 700;
+      margin: 0 0 10px;
+    }
+
+    .popup-meta {
+      display: grid;
+      gap: 6px;
+      font-size: 0.87rem;
+      color: #c9d7e0;
+    }
+
+    .popup-meta strong {
+      color: #8fa2af;
+      font-weight: 600;
+    }
+
+    .popup-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      color: #8fd8ff;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .popup-link:hover {
+      text-decoration: underline;
+    }
+
+    .leaflet-control-attribution {
+      background: rgba(8, 12, 15, 0.88) !important;
+      color: #8fa0ac !important;
+      border-top-left-radius: 8px;
+      font-size: 11px;
+    }
+
+    .leaflet-control-attribution a {
+      color: #b7c9d6 !important;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 1100px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .shell {
+        width: min(calc(100% - 18px), var(--max));
+        padding-top: 14px;
+      }
+
+      .brand,
+      .headline-panel {
+        padding: 18px;
+      }
+
+      .control-row {
+        align-items: flex-start;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .map-frame,
+      #map {
+        min-height: 560px;
+      }
+
+      .legend-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-note {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero" aria-label="Dashboard headline">
+      <div class="brand">
+        <div class="eyebrow">NASA EONET Live Feed</div>
+        <h1>World on Fire</h1>
+        <p class="subhead">
+          Live global natural events rendered from NASA&rsquo;s Earth Observatory Natural Event Tracker.
+          Open events by default. Switch to the last 7 days to widen the picture.
+        </p>
+      </div>
+
+      <aside class="headline-panel" aria-label="Current view summary">
+        <div>
+          <div class="mono-label">Current View</div>
+          <p id="totalCount" class="total-value">0</p>
+          <p id="headlineCopy" class="headline-copy">No events loaded yet.</p>
+        </div>
+        <div id="lastUpdated" class="timestamp">Awaiting first sync</div>
+      </aside>
+    </section>
+
+    <section class="controls" aria-label="Dashboard controls">
+      <div class="control-row">
+        <div class="control-group" role="group" aria-labelledby="timeToggleLabel">
+          <span id="timeToggleLabel" class="control-title">Time Window</span>
+          <button class="control-pill active" type="button" data-window="active">Active Now</button>
+          <button class="control-pill" type="button" data-window="7">Last 7 Days</button>
+        </div>
+
+        <div class="control-group" role="group" aria-labelledby="categoryFilterLabel">
+          <span id="categoryFilterLabel" class="control-title">Categories</span>
+          <div id="categoryFilters" class="control-group"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-grid" aria-label="Live category counts">
+      <article class="stat-card" style="--accent: var(--wildfires);">
+        <span class="label">🔥 Wildfires</span>
+        <div id="countWildfires" class="value">0</div>
+        <div class="meta">Active markers in view</div>
+      </article>
+      <article class="stat-card" style="--accent: var(--severe-storms);">
+        <span class="label">🌀 Severe Storms</span>
+        <div id="countSevereStorms" class="value">0</div>
+        <div class="meta">Open systems tracked</div>
+      </article>
+      <article class="stat-card" style="--accent: var(--volcanoes);">
+        <span class="label">🌋 Volcanoes</span>
+        <div id="countVolcanoes" class="value">0</div>
+        <div class="meta">Latest event geometries</div>
+      </article>
+      <article class="stat-card" style="--accent: var(--other);">
+        <span class="label">🌍 Other Events</span>
+        <div id="countOther" class="value">0</div>
+        <div class="meta">Floods, drought, ice, haze, more</div>
+      </article>
+    </section>
+
+    <section class="map-frame" aria-label="Live natural events map">
+      <div id="map" role="application" aria-label="World map of live natural events"></div>
+
+      <div id="mapOverlay" class="map-overlay show" aria-live="polite">
+        <div class="overlay-card">
+          <div class="spinner" aria-hidden="true"></div>
+          <h2 id="overlayTitle">Pulling live event feed</h2>
+          <p id="overlayMessage">Connecting to NASA EONET and preparing map markers.</p>
+          <div id="overlayDetail" class="overlay-detail">This usually takes a second or two.</div>
+        </div>
+      </div>
+
+      <aside class="map-legend" aria-label="Map legend">
+        <p class="legend-title">Category Colours</p>
+        <div class="legend-grid">
+          <div class="legend-item"><span class="swatch" style="background: var(--wildfires);"></span> Wildfires</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--severe-storms);"></span> Severe Storms</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--volcanoes);"></span> Volcanoes</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--floods);"></span> Floods</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--sea-lake-ice);"></span> Sea and Lake Ice</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--drought);"></span> Drought</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--dust-haze);"></span> Dust and Haze</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--other);"></span> Other</div>
+        </div>
+      </aside>
+    </section>
+
+    <div class="footer-note">
+      <span>Source: NASA EONET v3 GeoJSON feed. Open events by default when no status parameter is supplied.</span>
+      <span>Built as a static, zero-backend dashboard for quick deployment.</span>
+    </div>
+  </main>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script>
+    (() => {
+      const API_BASE = "https://eonet.gsfc.nasa.gov/api/v3/events/geojson";
+      const CATEGORY_DEFS = [
+        { id: "wildfires", title: "Wildfires", color: "#ff4510", icon: "🔥" },
+        { id: "severeStorms", title: "Severe Storms", color: "#00aaff", icon: "🌀" },
+        { id: "volcanoes", title: "Volcanoes", color: "#cc44ff", icon: "🌋" },
+        { id: "floods", title: "Floods", color: "#00ddaa", icon: "🌊" },
+        { id: "seaLakeIce", title: "Sea and Lake Ice", color: "#88ccff", icon: "🧊" },
+        { id: "drought", title: "Drought", color: "#ffaa00", icon: "☀️" },
+        { id: "dustHaze", title: "Dust and Haze", color: "#cc9966", icon: "🌫️" }
+      ];
+      const OTHER = { id: "other", title: "Other", color: "#888888", icon: "🌍" };
+      const CATEGORY_BY_ID = new Map(CATEGORY_DEFS.map((item) => [item.id, item]));
+      const CATEGORY_ORDER = [...CATEGORY_DEFS.map((item) => item.id), OTHER.id];
+
+      const state = {
+        timeWindow: "active",
+        rawFeatures: [],
+        processedFeatures: [],
+        selectedCategories: new Set(CATEGORY_ORDER),
+        markers: []
+      };
+
+      const totalCountEl = document.getElementById("totalCount");
+      const headlineCopyEl = document.getElementById("headlineCopy");
+      const lastUpdatedEl = document.getElementById("lastUpdated");
+      const overlayEl = document.getElementById("mapOverlay");
+      const overlayTitleEl = document.getElementById("overlayTitle");
+      const overlayMessageEl = document.getElementById("overlayMessage");
+      const overlayDetailEl = document.getElementById("overlayDetail");
+      const categoryFiltersEl = document.getElementById("categoryFilters");
+      const timeButtons = Array.from(document.querySelectorAll(".control-pill[data-window]"));
+
+      const countEls = {
+        wildfires: document.getElementById("countWildfires"),
+        severeStorms: document.getElementById("countSevereStorms"),
+        volcanoes: document.getElementById("countVolcanoes"),
+        other: document.getElementById("countOther")
+      };
+
+      const map = L.map("map", {
+        zoomControl: true,
+        preferCanvas: true,
+        worldCopyJump: true,
+        minZoom: 2
+      }).setView([20, 0], 2);
+
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        subdomains: "abcd",
+        maxZoom: 19
+      }).addTo(map);
+
+      const markerLayer = L.layerGroup().addTo(map);
+
+      function escapeHtml(input) {
+        return String(input ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function formatDate(dateString) {
+        if (!dateString) {
+          return "Unknown";
+        }
+        const date = new Date(dateString);
+        if (Number.isNaN(date.getTime())) {
+          return "Unknown";
+        }
+        return new Intl.DateTimeFormat(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZoneName: "short"
+        }).format(date);
+      }
+
+      function formatTimestamp(date = new Date()) {
+        return `Last sync ${new Intl.DateTimeFormat(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        }).format(date)}`;
+      }
+
+      function getPrimaryCategory(properties) {
+        const categories = Array.isArray(properties?.categories) ? properties.categories : [];
+        for (const category of categories) {
+          if (CATEGORY_BY_ID.has(category?.id)) {
+            return CATEGORY_BY_ID.get(category.id);
+          }
+        }
+        return OTHER;
+      }
+
+      function getCategoryLabel(properties) {
+        const categories = Array.isArray(properties?.categories) ? properties.categories : [];
+        if (!categories.length) {
+          return OTHER.title;
+        }
+        return categories.map((cat) => cat?.title || OTHER.title).filter(Boolean).join(", ");
+      }
+
+      function getSourceUrl(properties) {
+        const sources = Array.isArray(properties?.sources) ? properties.sources : [];
+        const firstSource = sources.find((source) => typeof source?.url === "string" && source.url.trim());
+        if (firstSource) {
+          return firstSource.url;
+        }
+        if (typeof properties?.link === "string" && properties.link.trim()) {
+          return properties.link;
+        }
+        return "";
+      }
+
+      function buildPopup(feature) {
+        const title = escapeHtml(feature.properties?.title || "Untitled event");
+        const categoryText = escapeHtml(getCategoryLabel(feature.properties));
+        const dateText = escapeHtml(formatDate(feature.properties?.date));
+        const sourceUrl = getSourceUrl(feature.properties);
+        const safeUrl = sourceUrl ? escapeHtml(sourceUrl) : "";
+        const linkHtml = safeUrl
+          ? `<a class="popup-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">Open source</a>`
+          : "";
+
+        return `
+          <div class="popup-title">${title}</div>
+          <div class="popup-meta">
+            <div><strong>Category</strong> ${categoryText}</div>
+            <div><strong>Latest geometry</strong> ${dateText}</div>
+          </div>
+          ${linkHtml}
+        `;
+      }
+
+      function polygonCentroid(coords) {
+        if (!Array.isArray(coords) || !coords.length || !Array.isArray(coords[0])) {
+          return null;
+        }
+
+        const ring = Array.isArray(coords[0][0]) ? coords[0] : coords;
+        let area = 0;
+        let x = 0;
+        let y = 0;
+
+        for (let i = 0; i < ring.length - 1; i += 1) {
+          const current = ring[i];
+          const next = ring[i + 1];
+          if (!Array.isArray(current) || !Array.isArray(next)) {
+            continue;
+          }
+          const cross = current[0] * next[1] - next[0] * current[1];
+          area += cross;
+          x += (current[0] + next[0]) * cross;
+          y += (current[1] + next[1]) * cross;
+        }
+
+        if (area === 0) {
+          let lonSum = 0;
+          let latSum = 0;
+          let count = 0;
+          for (const point of ring) {
+            if (Array.isArray(point) && Number.isFinite(point[0]) && Number.isFinite(point[1])) {
+              lonSum += point[0];
+              latSum += point[1];
+              count += 1;
+            }
+          }
+          return count ? [latSum / count, lonSum / count] : null;
+        }
+
+        const denominator = area * 3;
+        return [y / denominator, x / denominator];
+      }
+
+      function coordinatesToLatLng(feature) {
+        const geometry = feature?.geometry;
+        if (!geometry || !geometry.type) {
+          return null;
+        }
+
+        try {
+          if (geometry.type === "Point") {
+            const [lon, lat] = geometry.coordinates || [];
+            if (Number.isFinite(lat) && Number.isFinite(lon)) {
+              return [lat, lon];
+            }
+            return null;
+          }
+
+          if (geometry.type === "Polygon") {
+            return polygonCentroid(geometry.coordinates);
+          }
+
+          if (geometry.type === "MultiPolygon") {
+            const firstPolygon = Array.isArray(geometry.coordinates) ? geometry.coordinates[0] : null;
+            return firstPolygon ? polygonCentroid(firstPolygon) : null;
+          }
+
+          console.warn("Skipping unsupported geometry type:", geometry.type, feature);
+          return null;
+        } catch (error) {
+          console.warn("Failed to parse geometry", error, feature);
+          return null;
+        }
+      }
+
+      function normalizeFeature(feature) {
+        if (!feature || feature.geometry == null) {
+          return null;
+        }
+
+        const latlng = coordinatesToLatLng(feature);
+        if (!latlng) {
+          return null;
+        }
+
+        const primaryCategory = getPrimaryCategory(feature.properties);
+        return {
+          raw: feature,
+          latlng,
+          categoryId: primaryCategory.id,
+          categoryTitle: primaryCategory.title,
+          color: primaryCategory.color,
+          icon: primaryCategory.icon,
+          date: feature.properties?.date || null,
+          sortDate: feature.properties?.date ? new Date(feature.properties.date).getTime() : 0
+        };
+      }
+
+      function showOverlay(title, message, detail = "") {
+        overlayTitleEl.textContent = title;
+        overlayMessageEl.textContent = message;
+        overlayDetailEl.textContent = detail;
+        overlayEl.classList.add("show");
+      }
+
+      function hideOverlay() {
+        overlayEl.classList.remove("show");
+      }
+
+      function buildCategoryFilters() {
+        categoryFiltersEl.innerHTML = "";
+        const entries = [...CATEGORY_DEFS, OTHER];
+
+        for (const category of entries) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "category-btn";
+          button.dataset.category = category.id;
+          button.setAttribute("aria-pressed", "true");
+          button.innerHTML = `<span class="swatch" style="background:${category.color}"></span><span>${escapeHtml(category.title)}</span>`;
+
+          button.addEventListener("click", () => {
+            toggleCategory(category.id, button);
+          });
+
+          categoryFiltersEl.appendChild(button);
+        }
+      }
+
+      function toggleCategory(categoryId, buttonEl) {
+        if (state.selectedCategories.has(categoryId)) {
+          if (state.selectedCategories.size === 1) {
+            return;
+          }
+          state.selectedCategories.delete(categoryId);
+          buttonEl.classList.add("off");
+          buttonEl.setAttribute("aria-pressed", "false");
+        } else {
+          state.selectedCategories.add(categoryId);
+          buttonEl.classList.remove("off");
+          buttonEl.setAttribute("aria-pressed", "true");
+        }
+        renderFromState();
+      }
+
+      function setTimeWindow(windowKey) {
+        if (state.timeWindow === windowKey) {
+          return;
+        }
+        state.timeWindow = windowKey;
+        for (const button of timeButtons) {
+          button.classList.toggle("active", button.dataset.window === windowKey);
+        }
+        loadEvents();
+      }
+
+      function attachTimeEvents() {
+        for (const button of timeButtons) {
+          button.addEventListener("click", () => setTimeWindow(button.dataset.window));
+        }
+      }
+
+      function buildApiUrl() {
+        const url = new URL(API_BASE);
+        if (state.timeWindow === "7") {
+          url.searchParams.set("days", "7");
+        }
+        return url.toString();
+      }
+
+      function clearMarkers() {
+        markerLayer.clearLayers();
+        state.markers = [];
+      }
+
+      function updateStats(visibleFeatures) {
+        const counts = {
+          wildfires: 0,
+          severeStorms: 0,
+          volcanoes: 0,
+          other: 0
+        };
+
+        for (const item of visibleFeatures) {
+          if (item.categoryId === "wildfires") {
+            counts.wildfires += 1;
+          } else if (item.categoryId === "severeStorms") {
+            counts.severeStorms += 1;
+          } else if (item.categoryId === "volcanoes") {
+            counts.volcanoes += 1;
+          } else {
+            counts.other += 1;
+          }
+        }
+
+        countEls.wildfires.textContent = String(counts.wildfires);
+        countEls.severeStorms.textContent = String(counts.severeStorms);
+        countEls.volcanoes.textContent = String(counts.volcanoes);
+        countEls.other.textContent = String(counts.other);
+
+        totalCountEl.textContent = String(visibleFeatures.length);
+
+        const activeCategories = [];
+        if (counts.wildfires) activeCategories.push(`${counts.wildfires} wildfire${counts.wildfires === 1 ? "" : "s"}`);
+        if (counts.severeStorms) activeCategories.push(`${counts.severeStorms} storm${counts.severeStorms === 1 ? "" : "s"}`);
+        if (counts.volcanoes) activeCategories.push(`${counts.volcanoes} volcano${counts.volcanoes === 1 ? "" : "es"}`);
+        if (counts.other) activeCategories.push(`${counts.other} other event${counts.other === 1 ? "" : "s"}`);
+
+        const windowLabel = state.timeWindow === "7" ? "from the last 7 days" : "currently open";
+        headlineCopyEl.textContent = activeCategories.length
+          ? `${activeCategories.join(" • ")} ${windowLabel}.`
+          : `No visible events ${windowLabel}.`;
+      }
+
+      function fitMapToMarkers(markers) {
+        if (!markers.length) {
+          map.setView([20, 0], 2);
+          return;
+        }
+
+        const bounds = L.latLngBounds(markers.map((item) => item.getLatLng()));
+        if (bounds.isValid()) {
+          map.fitBounds(bounds.pad(0.25), { maxZoom: 6, animate: false });
+        }
+      }
+
+      function renderFromState() {
+        clearMarkers();
+
+        const visibleFeatures = state.processedFeatures
+          .filter((item) => state.selectedCategories.has(item.categoryId))
+          .sort((a, b) => b.sortDate - a.sortDate);
+
+        for (const item of visibleFeatures) {
+          const marker = L.circleMarker(item.latlng, {
+            radius: 6,
+            color: item.color,
+            fillColor: item.color,
+            fillOpacity: 0.82,
+            weight: 1.2,
+            opacity: 0.95
+          });
+
+          marker.bindPopup(buildPopup(item.raw), {
+            maxWidth: 320,
+            className: "event-popup"
+          });
+
+          marker.addTo(markerLayer);
+          state.markers.push(marker);
+        }
+
+        updateStats(visibleFeatures);
+        fitMapToMarkers(state.markers);
+      }
+
+      async function loadEvents() {
+        showOverlay(
+          "Pulling live event feed",
+          state.timeWindow === "7" ? "Loading the last 7 days of events from NASA EONET." : "Loading currently open events from NASA EONET.",
+          buildApiUrl()
+        );
+
+        try {
+          const response = await fetch(buildApiUrl(), { cache: "no-store" });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const payload = await response.json();
+          const features = Array.isArray(payload?.features) ? payload.features : [];
+          const processed = features
+            .map(normalizeFeature)
+            .filter(Boolean);
+
+          state.rawFeatures = features;
+          state.processedFeatures = processed;
+          lastUpdatedEl.textContent = formatTimestamp(new Date());
+          renderFromState();
+          hideOverlay();
+        } catch (error) {
+          console.error("Failed to load EONET data", error);
+          clearMarkers();
+          state.rawFeatures = [];
+          state.processedFeatures = [];
+          updateStats([]);
+          showOverlay(
+            "Feed unavailable",
+            "The EONET request failed, so the map could not be populated.",
+            `${error?.message || "Unknown error"}. If you opened this file locally and the browser blocks network requests from file:// origins, deploy it to Netlify or another static host.`
+          );
+        }
+      }
+
+      buildCategoryFilters();
+      attachTimeEvents();
+      loadEvents();
+    })();
+  </script>
+</body>
+</html>
